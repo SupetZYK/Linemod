@@ -72,6 +72,36 @@ void drawResponse(const std::vector<cv::linemod::Template>& templates, int num_m
     }
   }
 }
+// Functions to store detector and templates in single XML/YAML file
+static cv::Ptr<cv::linemod::Detector> readLinemod(const std::string& filename)
+{
+  cv::Ptr<cv::linemod::Detector> detector = cv::makePtr<cv::linemod::Detector>();
+  cv::FileStorage fs(filename, cv::FileStorage::READ);
+  detector->read(fs.root());
+
+  cv::FileNode fn = fs["classes"];
+  for (cv::FileNodeIterator i = fn.begin(), iend = fn.end(); i != iend; ++i)
+    detector->readClass(*i);
+
+  return detector;
+}
+
+static void writeLinemod(const cv::Ptr<cv::linemod::Detector>& detector, const std::string& filename)
+{
+  cv::FileStorage fs(filename, cv::FileStorage::WRITE);
+  detector->write(fs);
+
+  std::vector<cv::String> ids = detector->classIds();
+  fs << "classes" << "[";
+  for (int i = 0; i < (int)ids.size(); ++i)
+  {
+    fs << "{";
+    detector->writeClass(ids[i], fs);
+    fs << "}"; // current class
+  }
+  fs << "]"; // classes
+}
+
 bool visualize_=false;
 
 int main(int argc, char **argv) {
@@ -80,10 +110,10 @@ int main(int argc, char **argv) {
   //render parameters
   size_t renderer_n_points=150;
   float render_near=0.1, render_far=2000.0;
-  float renderer_angle_step = 10;
-  float renderer_radius_min = 500;
-  float renderer_radius_max = 1000;
-  float renderer_radius_step = 50;
+  float renderer_angle_step = 360;
+  float renderer_radius_min = 300;
+  float renderer_radius_max = 1500;
+  float renderer_radius_step = 100;
   float renderer_focal_length_x=525;
   float renderer_focal_length_y=525;
   // the model name can be specified on the command line.
@@ -137,13 +167,13 @@ int main(int argc, char **argv) {
 
     R = renderer_iterator.R_obj();
     T = renderer_iterator.T();
-    float distance = renderer_iterator.D_obj() - float(depth.at<ushort>(depth.rows/2.0f, depth.cols/2.0f)/1000.0f);
+    float distance = renderer_iterator.D_obj() - float(depth.at<ushort>(depth.rows/2.0f, depth.cols/2.0f));
     K = cv::Matx33f(renderer_focal_length_x, 0.0f, float(rect.width)/2.0f, 0.0f, renderer_focal_length_y, float(rect.height)/2.0f, 0.0f, 0.0f, 1.0f);
 
     std::vector<cv::Mat> sources(2);
     sources[0] = image;
     sources[1] = depth;
-
+    //std::cout<<depth<<std::endl;
   //#if LINEMOD_VIZ_IMG
     // Display the rendered image
     if (visualize_)
@@ -151,6 +181,7 @@ int main(int argc, char **argv) {
       cv::namedWindow("Rendering");
       if (!image.empty()) {
         cv::imshow("Rendering", image);
+        //cv::imshow("mask",mask);
         cv::waitKey(0);
       }
     }
@@ -175,8 +206,8 @@ int main(int argc, char **argv) {
     for (size_t j = 0; j < status.str().size(); ++j)
       std::cout << '\b';
   }
-//  detector_ptr->writeClasses(file_name + std::string("_templates.yaml"));
-
+  //detector_ptr->writeClasses(file_name + std::string("_templates.yaml"));
+    writeLinemod(detector_ptr,file_name + std::string("_templates.yaml"));
 
 
 

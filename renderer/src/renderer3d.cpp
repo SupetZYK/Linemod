@@ -344,6 +344,7 @@ Renderer3d::renderDepthOnly(cv::Mat &depth_out, cv::Mat &mask_out, cv::Rect &rec
       //need to undo the depth buffer mapping
       //http://olivers.posterous.com/linear-depth-in-glsl-for-real
       *it = 2 * zFar * zNear / (zFar + zNear - (zFar - zNear) * (2 * (*it) - 1));
+        float tmp=*it;
       if (*it > max_allowed_z)
         *it = 0;
       else
@@ -363,7 +364,10 @@ Renderer3d::renderDepthOnly(cv::Mat &depth_out, cv::Mat &mask_out, cv::Rect &rec
 
   // Rescale the depth to be in millimeters
   cv::Mat depth_scale(cv::Size(renderer_->width_, renderer_->height_), CV_16UC1);
-  depth.convertTo(depth_scale, CV_16UC1, 1e3);
+
+  //2017-12-1 zyk changed
+  //depth.convertTo(depth_scale, CV_16UC1, 1e3);
+  depth.convertTo(depth_scale, CV_16UC1);
 
   // Crop the images, just so that they are smaller to write/read
   if (i_min > 0)

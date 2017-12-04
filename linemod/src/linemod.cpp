@@ -41,7 +41,7 @@
 //M*/
 
 #include "precomp.hpp"
-
+#include <opencv2/highgui/highgui.hpp>
 namespace cv
 {
 namespace linemod
@@ -501,8 +501,11 @@ bool ColorGradientPyramid::extractTemplate(Template& templ) const
   Mat local_mask;
   if (!mask.empty())
   {
+
     erode(mask, local_mask, Mat(), Point(-1,-1), 1, BORDER_REPLICATE);
     subtract(mask, local_mask, local_mask);
+//    cv::imshow("test",local_mask);
+//    cv::waitKey(0);
   }
 
   // Create sorted list of all pixels with magnitude greater than a threshold
@@ -512,6 +515,7 @@ bool ColorGradientPyramid::extractTemplate(Template& templ) const
   for (int r = 0; r < magnitude.rows; ++r)
   {
     const uchar* angle_r = angle.ptr<uchar>(r);
+
     const float* magnitude_r = magnitude.ptr<float>(r);
     const uchar* mask_r = no_mask ? NULL : local_mask.ptr<uchar>(r);
 
@@ -789,7 +793,8 @@ bool DepthNormalPyramid::extractTemplate(Template& templ) const
   {
     erode(mask, local_mask, Mat(), Point(-1,-1), 2, BORDER_REPLICATE);
   }
-
+//      cv::imshow("a",local_mask);
+//      cv::waitKey(0);
   // Compute distance transform for each individual quantized orientation
   Mat temp = Mat::zeros(normal.size(), CV_8U);
   Mat distances[8];
@@ -797,6 +802,8 @@ bool DepthNormalPyramid::extractTemplate(Template& templ) const
   {
     temp.setTo(1 << i, local_mask);
     bitwise_and(temp, normal, temp);
+//    cv::imshow("a",temp);
+//    cv::waitKey(0);
     // temp is now non-zero at pixels in the mask with quantized orientation i
     distanceTransform(temp, distances[i], DIST_C, 3);
   }

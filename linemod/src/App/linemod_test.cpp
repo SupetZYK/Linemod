@@ -8,7 +8,7 @@
 #include <set>
 #include <cstdio>
 #include <iostream>
-
+#include <fstream>
 // Function prototypes
 void subtractPlane(const cv::Mat& depth, cv::Mat& mask, std::vector<CvPoint>& chain, double f);
 
@@ -141,12 +141,40 @@ static void writeLinemod(const cv::Ptr<cv::linemod::Detector>& detector, const s
   fs << "]"; // classes
 }
 
+IplImage * loadDepth(std::string a_name)
+{
+    std::ifstream l_file(a_name.c_str(), std::ofstream::in | std::ofstream::binary);
+
+    if (l_file.fail() == true)
+    {
+        printf("cv_load_depth: could not open file for writing!\n");
+        return NULL;
+    }
+    int l_row;
+    int l_col;
+
+    l_file.read((char*)&l_row, sizeof(l_row));
+    l_file.read((char*)&l_col, sizeof(l_col));
+
+    IplImage * lp_image = cvCreateImage(cvSize(l_col, l_row), IPL_DEPTH_16U, 1);
+
+    for (int l_r = 0; l_r < l_row; ++l_r)
+    {
+        for (int l_c = 0; l_c < l_col; ++l_c)
+        {
+            l_file.read((char*)&CV_IMAGE_ELEM(lp_image, unsigned short, l_r, l_c), sizeof(unsigned short));
+        }
+    }
+    l_file.close();
+
+    return lp_image;
+}
 
 int main(int argc, char * argv[])
 {
   // Various settings and flags
   bool show_match_result = true;
-  bool show_timings = false;
+  bool show_timings = true;
   bool learn_online = false;
   int num_classes = 0;
   int matching_threshold = 80;
@@ -160,7 +188,7 @@ int main(int argc, char * argv[])
   Timer match_timer;
 
   // Initialize HighGUI
-  help();
+  //help();
   cv::namedWindow("color");
   cv::namedWindow("normals");
   Mouse::start("color");
@@ -168,10 +196,10 @@ int main(int argc, char * argv[])
   // Initialize LINEMOD data structures
   cv::Ptr<cv::linemod::Detector> detector;
   std::string filename;
-  if (argc == 1)
+  if (argc <= 1)
   {
-    filename = "linemod_templates.yml";
-    detector = cv::linemod::getDefaultLINEMOD();
+    std::cout<<"error!"<<std::endl;
+    exit(-1);
   }
   else
   {
@@ -189,191 +217,143 @@ int main(int argc, char * argv[])
   }
   int num_modalities = (int)detector->getModalities().size();
 
-  // Open Kinect sensor
-  cv::VideoCapture capture( cv::CAP_OPENNI );
-  if (!capture.isOpened())
+  double focal_length = 525;
+
+  // load color and depth
+  IplImage* lp=loadDepth("depth284.dpt");
+  cv::Mat depth = cv::cvarrToMat(lp);
+  cv::Mat color = cv::imread("color284.jpg");
+  // prepare show depth
+  double min, max;
+  cv::minMaxIdx(depth,&min,&max);
+  cv::Mat show_dp;
+  depth.convertTo(show_dp,CV_8U,255/(max-min),-min);
+//  cv::imshow("tst",color);
+//  cv::waitKey(0);
+//  cv::imshow("tst",show_dp);
+//  cv::waitKey(0);
+
+  std::vector<cv::Mat> sources;
+  sources.push_back(color);
+  sources.push_back(depth);
+  cv::Mat display = color.clone();
+
+  // Perform matching
+  std::vector<cv::linemod::Match> matches;
+  std::vector<cv::String> class_ids;
+  std::vector<cv::Mat> quantized_images;
+  match_timer.start();
+  detector->match(sources, (float)matching_threshold, matches, class_ids, quantized_images);
+  match_timer.stop();
+
+  int classes_visited = 0;
+  std::set<std::string> visited;
+
+  for (int i = 0; (i < (int)matches.size()) && (classes_visited < num_classes); ++i)
   {
-    printf("Could not open OpenNI-capable sensor\n");
-    return -1;
-  }
-  capture.set(cv::CAP_PROP_OPENNI_REGISTRATION, 1);
-  double focal_length = capture.get(cv::CAP_OPENNI_DEPTH_GENERATOR_FOCAL_LENGTH);
-  //printf("Focal length = %f\n", focal_length);
+    cv::linemod::Match m = matches[i];
 
-  // Main loop
-  cv::Mat color, depth;
-  for(;;)
-  {
-    // Capture next color/depth pair
-    capture.grab();
-    capture.retrieve(depth, cv::CAP_OPENNI_DEPTH_MAP);
-    capture.retrieve(color, cv::CAP_OPENNI_BGR_IMAGE);
-
-    std::vector<cv::Mat> sources;
-    sources.push_back(color);
-    sources.push_back(depth);
-    cv::Mat display = color.clone();
-
-    if (!learn_online)
+    if (visited.insert(m.class_id).second)
     {
-      cv::Point mouse(Mouse::x(), Mouse::y());
-      int event = Mouse::event();
+      ++classes_visited;
 
-      // Compute ROI centered on current mouse location
-      cv::Point roi_offset(roi_size.width / 2, roi_size.height / 2);
-      cv::Point pt1 = mouse - roi_offset; // top left
-      cv::Point pt2 = mouse + roi_offset; // bottom right
-
-      if (event == cv::EVENT_RBUTTONDOWN)
+      if (show_match_result)
       {
-        // Compute object mask by subtracting the plane within the ROI
-        std::vector<CvPoint> chain(4);
-        chain[0] = pt1;
-        chain[1] = cv::Point(pt2.x, pt1.y);
-        chain[2] = pt2;
-        chain[3] = cv::Point(pt1.x, pt2.y);
-        cv::Mat mask;
-        subtractPlane(depth, mask, chain, focal_length);
-
-        cv::imshow("mask", mask);
-
-        // Extract template
-        std::string class_id = cv::format("class%d", num_classes);
-        cv::Rect bb;
-        extract_timer.start();
-        int template_id = detector->addTemplate(sources, class_id, mask, &bb);
-        extract_timer.stop();
-        if (template_id != -1)
-        {
-          printf("*** Added template (id %d) for new object class %d***\n",
-                 template_id, num_classes);
-          //printf("Extracted at (%d, %d) size %dx%d\n", bb.x, bb.y, bb.width, bb.height);
-        }
-
-        ++num_classes;
+        printf("Similarity: %5.1f%%; x: %3d; y: %3d; class: %s; template: %3d\n",
+               m.similarity, m.x, m.y, m.class_id.c_str(), m.template_id);
       }
 
-      // Draw ROI for display
-      cv::rectangle(display, pt1, pt2, CV_RGB(0,0,0), 3);
-      cv::rectangle(display, pt1, pt2, CV_RGB(255,255,0), 1);
-    }
+      // Draw matching template
+      const std::vector<cv::linemod::Template>& templates = detector->getTemplates(m.class_id, m.template_id);
+      drawResponse(templates, num_modalities, display, cv::Point(m.x, m.y), detector->getT(0));
 
-    // Perform matching
-    std::vector<cv::linemod::Match> matches;
-    std::vector<cv::String> class_ids;
-    std::vector<cv::Mat> quantized_images;
-    match_timer.start();
-    detector->match(sources, (float)matching_threshold, matches, class_ids, quantized_images);
-    match_timer.stop();
+//      if (learn_online == true)
+//      {
+//        /// @todo Online learning possibly broken by new gradient feature extraction,
+//        /// which assumes an accurate object outline.
 
-    int classes_visited = 0;
-    std::set<std::string> visited;
+//        // Compute masks based on convex hull of matched template
+//        cv::Mat color_mask, depth_mask;
+//        std::vector<CvPoint> chain = maskFromTemplate(templates, num_modalities,
+//                                                      cv::Point(m.x, m.y), color.size(),
+//                                                      color_mask, display);
+//        subtractPlane(depth, depth_mask, chain, focal_length);
 
-    for (int i = 0; (i < (int)matches.size()) && (classes_visited < num_classes); ++i)
-    {
-      cv::linemod::Match m = matches[i];
+//        cv::imshow("mask", depth_mask);
 
-      if (visited.insert(m.class_id).second)
-      {
-        ++classes_visited;
-
-        if (show_match_result)
-        {
-          printf("Similarity: %5.1f%%; x: %3d; y: %3d; class: %s; template: %3d\n",
-                 m.similarity, m.x, m.y, m.class_id.c_str(), m.template_id);
-        }
-
-        // Draw matching template
-        const std::vector<cv::linemod::Template>& templates = detector->getTemplates(m.class_id, m.template_id);
-        drawResponse(templates, num_modalities, display, cv::Point(m.x, m.y), detector->getT(0));
-
-        if (learn_online == true)
-        {
-          /// @todo Online learning possibly broken by new gradient feature extraction,
-          /// which assumes an accurate object outline.
-
-          // Compute masks based on convex hull of matched template
-          cv::Mat color_mask, depth_mask;
-          std::vector<CvPoint> chain = maskFromTemplate(templates, num_modalities,
-                                                        cv::Point(m.x, m.y), color.size(),
-                                                        color_mask, display);
-          subtractPlane(depth, depth_mask, chain, focal_length);
-
-          cv::imshow("mask", depth_mask);
-
-          // If pretty sure (but not TOO sure), add new template
-          if (learning_lower_bound < m.similarity && m.similarity < learning_upper_bound)
-          {
-            extract_timer.start();
-            int template_id = detector->addTemplate(sources, m.class_id, depth_mask);
-            extract_timer.stop();
-            if (template_id != -1)
-            {
-              printf("*** Added template (id %d) for existing object class %s***\n",
-                     template_id, m.class_id.c_str());
-            }
-          }
-        }
-      }
-    }
-
-    if (show_match_result && matches.empty())
-      printf("No matches found...\n");
-    if (show_timings)
-    {
-      printf("Training: %.2fs\n", extract_timer.time());
-      printf("Matching: %.2fs\n", match_timer.time());
-    }
-    if (show_match_result || show_timings)
-      printf("------------------------------------------------------------\n");
-
-    cv::imshow("color", display);
-    cv::imshow("normals", quantized_images[1]);
-
-    cv::FileStorage fs;
-    char key = (char)cv::waitKey(10);
-    if( key == 'q' )
-        break;
-
-    switch (key)
-    {
-      case 'h':
-        help();
-        break;
-      case 'm':
-        // toggle printing match result
-        show_match_result = !show_match_result;
-        printf("Show match result %s\n", show_match_result ? "ON" : "OFF");
-        break;
-      case 't':
-        // toggle printing timings
-        show_timings = !show_timings;
-        printf("Show timings %s\n", show_timings ? "ON" : "OFF");
-        break;
-      case 'l':
-        // toggle online learning
-        learn_online = !learn_online;
-        printf("Online learning %s\n", learn_online ? "ON" : "OFF");
-        break;
-      case '[':
-        // decrement threshold
-        matching_threshold = std::max(matching_threshold - 1, -100);
-        printf("New threshold: %d\n", matching_threshold);
-        break;
-      case ']':
-        // increment threshold
-        matching_threshold = std::min(matching_threshold + 1, +100);
-        printf("New threshold: %d\n", matching_threshold);
-        break;
-      case 'w':
-        // write model to disk
-        writeLinemod(detector, filename);
-        printf("Wrote detector and templates to %s\n", filename.c_str());
-        break;
-      default:
-        ;
+//        // If pretty sure (but not TOO sure), add new template
+//        if (learning_lower_bound < m.similarity && m.similarity < learning_upper_bound)
+//        {
+//          extract_timer.start();
+//          int template_id = detector->addTemplate(sources, m.class_id, depth_mask);
+//          extract_timer.stop();
+//          if (template_id != -1)
+//          {
+//            printf("*** Added template (id %d) for existing object class %s***\n",
+//                   template_id, m.class_id.c_str());
+//          }
+//        }
+//      }
     }
   }
+
+  if (show_match_result && matches.empty())
+    printf("No matches found...\n");
+  printf("found %d matches...\n",matches.size());
+  if (show_timings)
+  {
+    printf("Training: %.2fs\n", extract_timer.time());
+    printf("Matching: %.2fs\n", match_timer.time());
+  }
+  if (show_match_result || show_timings)
+    printf("------------------------------------------------------------\n");
+
+  cv::imshow("color", display);
+  cv::imshow("normals", quantized_images[1]);
+  cv::waitKey(0);
+//  cv::FileStorage fs;
+//  char key = (char)cv::waitKey(10);
+//  if( key == 'q' )
+//      break;
+
+//  switch (key)
+//  {
+//    case 'h':
+//      //help();
+//      break;
+//    case 'm':
+//      // toggle printing match result
+//      show_match_result = !show_match_result;
+//      printf("Show match result %s\n", show_match_result ? "ON" : "OFF");
+//      break;
+//    case 't':
+//      // toggle printing timings
+//      show_timings = !show_timings;
+//      printf("Show timings %s\n", show_timings ? "ON" : "OFF");
+//      break;
+//    case 'l':
+//      // toggle online learning
+//      learn_online = !learn_online;
+//      printf("Online learning %s\n", learn_online ? "ON" : "OFF");
+//      break;
+//    case '[':
+//      // decrement threshold
+//      matching_threshold = std::max(matching_threshold - 1, -100);
+//      printf("New threshold: %d\n", matching_threshold);
+//      break;
+//    case ']':
+//      // increment threshold
+//      matching_threshold = std::min(matching_threshold + 1, +100);
+//      printf("New threshold: %d\n", matching_threshold);
+//      break;
+//    case 'w':
+//      // write model to disk
+//      writeLinemod(detector, filename);
+//      printf("Wrote detector and templates to %s\n", filename.c_str());
+//      break;
+//    default:
+//      ;
+//  }
   return 0;
 }
 

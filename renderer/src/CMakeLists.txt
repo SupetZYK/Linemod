@@ -26,7 +26,6 @@ if (${USE_GLUT})
 
   find_package(GLUT)
   include_directories(SYSTEM ${GLUT_INCLUDE_DIR})
-
   set(EXTRA_SOURCES renderer3d_impl_glut.cpp)
   set(EXTRA_LIBRARIES ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES})
 else()

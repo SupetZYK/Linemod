@@ -108,14 +108,14 @@ int main(int argc, char **argv) {
   // Define the display
   size_t width = 640, height = 480;
   //render parameters
-  size_t renderer_n_points=150;
+  size_t renderer_n_points=300;
   float render_near=0.1, render_far=2000.0;
-  float renderer_angle_step = 360;
-  float renderer_radius_min = 300;
-  float renderer_radius_max = 1500;
-  float renderer_radius_step = 100;
-  float renderer_focal_length_x=525;
-  float renderer_focal_length_y=525;
+  float renderer_angle_step = 15;
+  float renderer_radius_min = 500;
+  float renderer_radius_max = 1200;
+  float renderer_radius_step = 1.1;
+  float renderer_focal_length_x=572.41140;
+  float renderer_focal_length_y=573.57043;
   // the model name can be specified on the command line.
   std::string file_name;
   std::string file_ext;
@@ -144,12 +144,14 @@ int main(int argc, char **argv) {
   cv::Ptr<cv::linemod::Detector> detector_ptr = cv::linemod::getDefaultLINEMOD();
   RendererIterator renderer_iterator = RendererIterator(&renderer, renderer_n_points);
   //set the RendererIterator parameters
+  renderer_iterator.angle_min_=-170;
+  renderer_iterator.angle_max_=180;
   renderer_iterator.angle_step_ = renderer_angle_step;
   renderer_iterator.radius_ = renderer_radius_min;
   renderer_iterator.radius_min_ = renderer_radius_min;
   renderer_iterator.radius_max_ = renderer_radius_max;
   renderer_iterator.radius_step_ = renderer_radius_step;
-
+  renderer_iterator.absolute_radius_step=false;
   cv::Mat image, depth, mask;
   cv::Matx33d R;
   cv::Vec3d T;
@@ -176,15 +178,15 @@ int main(int argc, char **argv) {
     //std::cout<<depth<<std::endl;
   //#if LINEMOD_VIZ_IMG
     // Display the rendered image
-    if (visualize_)
-    {
-      cv::namedWindow("Rendering");
-      if (!image.empty()) {
-        cv::imshow("Rendering", image);
-        //cv::imshow("mask",mask);
-        cv::waitKey(0);
-      }
-    }
+//    if (visualize_)
+//    {
+//      cv::namedWindow("Rendering");
+//      if (!image.empty()) {
+//        cv::imshow("Rendering", image);
+//        //cv::imshow("mask",mask);
+//        cv::waitKey(0);
+//      }
+//    }
   //#endif
 
     int template_in = detector_ptr->addTemplate(sources, "object1", mask);

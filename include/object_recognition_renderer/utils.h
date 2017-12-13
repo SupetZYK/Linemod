@@ -164,7 +164,8 @@ public:
   int angle_min_, angle_max_, angle_step_, angle_;
   /** Values for the scale sampling */
   float radius_min_, radius_max_, radius_step_, radius_;
-
+  /** bool flag for radius_step type, indicating whether it is a proportion decline */
+  bool absolute_radius_step=true;
 private:
   /**
    * @param T the translation vector

@@ -34,8 +34,8 @@ int main(int argc, char **argv) {
 //    float renderer_radius_min = 0.6;
 //    float renderer_radius_max = 1.1;
 //    float renderer_radius_step = 0.4;
-    float renderer_focal_length_x=573;
-    float renderer_focal_length_y=573;
+    float renderer_focal_length_x=572.41140;
+    float renderer_focal_length_y=573.57043;
 
     // the model name can be specified on the command line.
     std::string file_name;

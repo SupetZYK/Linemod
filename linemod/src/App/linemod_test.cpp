@@ -220,9 +220,9 @@ int main(int argc, char * argv[])
   double focal_length = 525;
 
   // load color and depth
-  IplImage* lp=loadDepth("depth284.dpt");
+  IplImage* lp=loadDepth("depth6.dpt");
   cv::Mat depth = cv::cvarrToMat(lp);
-  cv::Mat color = cv::imread("color284.jpg");
+  cv::Mat color = cv::imread("color6.jpg");
   // prepare show depth
   double min, max;
   cv::minMaxIdx(depth,&min,&max);
@@ -236,7 +236,7 @@ int main(int argc, char * argv[])
   std::vector<cv::Mat> sources;
   sources.push_back(color);
   sources.push_back(depth);
-  cv::Mat display = color.clone();
+
 
   // Perform matching
   std::vector<cv::linemod::Match> matches;
@@ -245,57 +245,6 @@ int main(int argc, char * argv[])
   match_timer.start();
   detector->match(sources, (float)matching_threshold, matches, class_ids, quantized_images);
   match_timer.stop();
-
-  int classes_visited = 0;
-  std::set<std::string> visited;
-
-  for (int i = 0; (i < (int)matches.size()) && (classes_visited < num_classes); ++i)
-  {
-    cv::linemod::Match m = matches[i];
-
-    if (visited.insert(m.class_id).second)
-    {
-      ++classes_visited;
-
-      if (show_match_result)
-      {
-        printf("Similarity: %5.1f%%; x: %3d; y: %3d; class: %s; template: %3d\n",
-               m.similarity, m.x, m.y, m.class_id.c_str(), m.template_id);
-      }
-
-      // Draw matching template
-      const std::vector<cv::linemod::Template>& templates = detector->getTemplates(m.class_id, m.template_id);
-      drawResponse(templates, num_modalities, display, cv::Point(m.x, m.y), detector->getT(0));
-
-//      if (learn_online == true)
-//      {
-//        /// @todo Online learning possibly broken by new gradient feature extraction,
-//        /// which assumes an accurate object outline.
-
-//        // Compute masks based on convex hull of matched template
-//        cv::Mat color_mask, depth_mask;
-//        std::vector<CvPoint> chain = maskFromTemplate(templates, num_modalities,
-//                                                      cv::Point(m.x, m.y), color.size(),
-//                                                      color_mask, display);
-//        subtractPlane(depth, depth_mask, chain, focal_length);
-
-//        cv::imshow("mask", depth_mask);
-
-//        // If pretty sure (but not TOO sure), add new template
-//        if (learning_lower_bound < m.similarity && m.similarity < learning_upper_bound)
-//        {
-//          extract_timer.start();
-//          int template_id = detector->addTemplate(sources, m.class_id, depth_mask);
-//          extract_timer.stop();
-//          if (template_id != -1)
-//          {
-//            printf("*** Added template (id %d) for existing object class %s***\n",
-//                   template_id, m.class_id.c_str());
-//          }
-//        }
-//      }
-    }
-  }
 
   if (show_match_result && matches.empty())
     printf("No matches found...\n");
@@ -308,9 +257,36 @@ int main(int argc, char * argv[])
   if (show_match_result || show_timings)
     printf("------------------------------------------------------------\n");
 
-  cv::imshow("color", display);
-  cv::imshow("normals", quantized_images[1]);
-  cv::waitKey(0);
+  int classes_visited = 0;
+  std::set<std::string> visited;
+
+
+  for (int i = 0; (i < (int)matches.size()) /*&& (classes_visited < num_classes)*/; ++i)
+  {
+    cv::linemod::Match m = matches[i];
+
+    if (visited.insert(m.class_id).second)
+    {
+      ++classes_visited;
+    }
+    if (show_match_result)
+    {
+      printf("Similarity: %5.1f%%; x: %3d; y: %3d; class: %s; template: %3d\n",
+             m.similarity, m.x, m.y, m.class_id.c_str(), m.template_id);
+    }
+
+    // Draw matching template
+    const std::vector<cv::linemod::Template>& templates = detector->getTemplates(m.class_id, m.template_id);
+      cv::Mat display = color.clone();
+    drawResponse(templates, num_modalities, display, cv::Point(m.x, m.y), detector->getT(0));
+    cv::imshow("color", display);
+    cv::imshow("normals", quantized_images[1]);
+    cv::waitKey(0);
+  }
+
+
+
+
 //  cv::FileStorage fs;
 //  char key = (char)cv::waitKey(10);
 //  if( key == 'q' )

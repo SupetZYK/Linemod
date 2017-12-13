@@ -62,7 +62,10 @@ RendererIterator::operator++()
   if (angle_ > angle_max_)
   {
     angle_ = angle_min_;
-    radius_ += radius_step_;
+    if(absolute_radius_step)
+        radius_ += radius_step_;
+    else if(radius_step_>1)
+        radius_*=radius_step_;
     if (radius_ > radius_max_)
     {
       radius_ = radius_min_;
@@ -225,7 +228,10 @@ RendererIterator::T() const
 size_t
 RendererIterator::n_templates() const
 {
-  return ((angle_max_ - angle_min_) / angle_step_ + 1) * n_points_ * ((radius_max_ - radius_min_) / radius_step_ + 1);
+    if(absolute_radius_step)
+        return ((angle_max_ - angle_min_) / angle_step_ + 1) * n_points_ * ((radius_max_ - radius_min_) / radius_step_ + 1);
+    return ((angle_max_ - angle_min_) / angle_step_ + 1) * n_points_ * (log(radius_max_/ radius_min_) / log(radius_step_ )+1);
+
 }
 
 /**

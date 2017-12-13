@@ -100,24 +100,25 @@ Renderer3d::set_parameters(size_t width, size_t height, double focal_length_x, d
   // Initialize the environment
   glClearColor(0.f, 0.f, 0.f, 1.f);
 
-  glEnable(GL_LIGHTING);
-  glEnable(GL_LIGHT0); // Uses default lighting parameters
+
 
   glEnable(GL_DEPTH_TEST);
 
-  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-  glEnable(GL_NORMALIZE);
-
-  //glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
-  //glEnable(GL_COLOR_MATERIAL);
-
-  GLfloat LightAmbient[]= { 0.5f, 0.5f, 0.5f, 1.0f };
+  GLfloat LightAmbient[]= { 0.3f, 0.3f, 0.3f, 1.0f };
   GLfloat LightDiffuse[]= { 1.0f, 1.0f, 1.0f, 1.0f };
-  GLfloat LightPosition[]= { 0.0f, 0.0f, 15.0f, 1.0f };
+  GLfloat LightPosition[]= { 0.0f, 0.0f, -100.0f, 0.0f };
     glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);
     glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);
     glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);
+    glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT1);
+    glEnable(GL_LIGHT0); // Uses default lighting parameters
+
+    glEnable(GL_NORMALIZE);
+
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT,LightAmbient);
+    glEnable(GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
 
   // Initialize the projection
   glMatrixMode(GL_PROJECTION);

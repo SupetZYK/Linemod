@@ -79,6 +79,10 @@ public:
 
   void
   get_bounding_box(aiVector3D* min, aiVector3D* max) const;
+
+  //zyk
+  const struct aiScene*
+    getScene()const {return scene;}
 };
 
 void

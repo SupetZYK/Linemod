@@ -51,7 +51,8 @@ RendererIterator::RendererIterator(Renderer *renderer, size_t n_points)
       radius_min_(0.4),
       radius_max_(0.8),
       radius_step_(0.2),
-      radius_(radius_min_)
+      radius_(radius_min_),
+      absolute_radius_step(true)
 {
 }
 

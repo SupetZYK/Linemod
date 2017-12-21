@@ -8,7 +8,10 @@ foreach( current_app ${App_LIST} )
     # Make sure YourLib is linked to each app
     target_link_libraries(${app_name}  ${PROJECT_NAME}_3d ${OpenCV_LIBRARIES} ${EXTRA_LIBRARIES} rgbd)
 endforeach( current_app ${App_LIST} )
-
+include(FindPNG)
+include_directories(${PNG_INCLUDE_DIR})
+target_link_libraries(learning_dataset_maker_from_ACCV3D  ${PNG_LIBRARY})
+target_link_libraries(learning_dataset_maker_from_ACCV3D_ver2  ${PNG_LIBRARY})
 ## add an executable to render views to a file
 #ADD_EXECUTABLE(train_test train_test.cpp)
 

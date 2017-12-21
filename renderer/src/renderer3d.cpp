@@ -44,13 +44,14 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include <opencv2/calib3d.hpp>
+#include <opencv2/highgui.hpp>
 #if USE_GLUT
 #include "renderer3d_impl_glut.h"
 #else
 #include "renderer3d_impl_osmesa.h"
 #endif
 
+#include <opencv2/calib3d.hpp>
 Renderer3d::Renderer3d(const std::string & mesh_path)
     :
       renderer_(new Renderer3dImpl(mesh_path, 0, 0)),
@@ -67,6 +68,7 @@ Renderer3d::Renderer3d(const std::string & mesh_path)
   // calls to aiImportFile(Ex) and aiApplyPostProcessing.
   ai_stream_ = new aiLogStream(aiGetPredefinedLogStream(aiDefaultLogStream_STDOUT, NULL));
   aiAttachLogStream(ai_stream_);
+    model_->LoadModel(renderer_->mesh_path_);
 }
 
 Renderer3d::~Renderer3d()
@@ -78,7 +80,7 @@ Renderer3d::~Renderer3d()
 }
 
 void
-Renderer3d::set_parameters(size_t width, size_t height, double focal_length_x, double focal_length_y, double near,
+Renderer3d::set_parameters(size_t width, size_t height, double focal_length_x, double focal_length_y, double px, double py, double near,
                          double far)
 {
   renderer_->width_ = width;
@@ -95,7 +97,6 @@ Renderer3d::set_parameters(size_t width, size_t height, double focal_length_x, d
   // Initialize the OpenGL context
   renderer_->set_parameters_low_level();
 
-  model_->LoadModel(renderer_->mesh_path_);
 
   // Initialize the environment
   glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -124,13 +125,17 @@ Renderer3d::set_parameters(size_t width, size_t height, double focal_length_x, d
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
 
-  double fx = Renderer3d::focal_length_x_;
-  double fy = Renderer3d::focal_length_y_;
-  double fovy = 2 * atan(0.5 * renderer_->height_ / fy) * 180 / CV_PI;
-  double aspect = (renderer_->width_ * fy) / (renderer_->height_ * fx);
 
-  // set perspective
-  gluPerspective(fovy, aspect, near, far);
+  // method 1, just create symmetrical view
+//  double fx = Renderer3d::focal_length_x_;
+//  double fy = Renderer3d::focal_length_y_;
+//  double fovy = 2 * atan(0.5 * renderer_->height_ / fy) * 180 / CV_PI;
+//  double aspect = (renderer_->width_ * fy) / (renderer_->height_ * fx);
+//  // set perspective
+//  gluPerspective(fovy, aspect, near, far);
+  //method 2
+  glFrustum(-px/focal_length_x*near, (width-px)/focal_length_x*near, (py-height)/focal_length_y*near, py/focal_length_y*near, near, far);
+
   glViewport(0, 0, renderer_->width_, renderer_->height_);
 }
 
@@ -221,9 +226,9 @@ Renderer3d::setModelRt(cv::Mat Rt)
     //glLoadMatrixf(m);
     float m[16];
     glGetFloatv(GL_MODELVIEW_MATRIX,m);
-    for(int i=0;i<16;++i)
-        printf("%f ", m[i]);
-    printf("\r\n");
+//    for(int i=0;i<16;++i)
+//        printf("%f ", m[i]);
+//    printf("\r\n");
     // if the display list has not been made yet, create a new one and
     // fill it with scene contents
     if (scene_list_ == 0)
@@ -416,6 +421,7 @@ void Renderer3d::renderDepthSimple(cv::Mat &depth_out, cv::Mat &mask_out, cv::Re
         //need to undo the depth buffer mapping
         //http://olivers.posterous.com/linear-depth-in-glsl-for-real
         *it = 2 * zFar * zNear / (zFar + zNear - (zFar - zNear) * (2 * (*it) - 1));
+         //float tp=*it;
         if (*it > max_allowed_z)
           *it = 0;
         else
@@ -435,8 +441,11 @@ void Renderer3d::renderDepthSimple(cv::Mat &depth_out, cv::Mat &mask_out, cv::Re
 
     // Rescale the depth to be in millimeters
     cv::Mat depth_scale(cv::Size(renderer_->width_, renderer_->height_), CV_16UC1);
-    depth.convertTo(depth_scale, CV_16UC1, 1e3);
+    depth.convertTo(depth_scale, CV_16UC1);
 
+
+//    cv::imshow("d",depth_scale);
+//    cv::waitKey(0);
 //    // Crop the images, just so that they are smaller to write/read
 //    if (i_min > 0)
 //      --i_min;
@@ -455,6 +464,12 @@ void Renderer3d::renderDepthSimple(cv::Mat &depth_out, cv::Mat &mask_out, cv::Re
       depth_scale(rect).copyTo(depth_out);
       mask(rect).copyTo(mask_out);
     }
+//    for(int i=0;i<depth_out.rows;++i)
+//        for(int j=0;j<depth_out.cols;++j){
+//            ushort test=depth_out.at<ushort>(i,j);
+//            if(test>100)
+//                test=0;
+//        }
 }
 
 void

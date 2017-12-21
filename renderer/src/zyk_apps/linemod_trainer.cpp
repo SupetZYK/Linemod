@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
   float renderer_radius_step = 1.1;
   float renderer_focal_length_x=572.41140;
   float renderer_focal_length_y=573.57043;
+
   // the model name can be specified on the command line.
   std::string file_name;
   std::string file_ext;
@@ -140,7 +141,7 @@ int main(int argc, char **argv) {
   }
   cv::Rect rect;
   Renderer3d renderer = Renderer3d(file_name);
-  renderer.set_parameters(width, height, renderer_focal_length_x, renderer_focal_length_y, render_near, render_far);
+  renderer.set_parameters(width, height, renderer_focal_length_x, renderer_focal_length_y, width/2,height/2,render_near, render_far);
   cv::Ptr<cv::linemod::Detector> detector_ptr = cv::linemod::getDefaultLINEMOD();
   RendererIterator renderer_iterator = RendererIterator(&renderer, renderer_n_points);
   //set the RendererIterator parameters

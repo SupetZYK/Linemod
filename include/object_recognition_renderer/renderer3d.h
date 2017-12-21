@@ -65,9 +65,18 @@ public:
 
   virtual
   ~Renderer3d();
-
+  /** Set intrinsic parameters
+   * @param width the image width
+   * @param height the image height
+   * @param focal_length_x the generalized focal length
+   * @param focal_length_y the generalized focal length
+   * @param px the principle point x component (pixel)
+   * @param py the principle point y component (pixel)
+   * @param near
+   * @param far
+   */
   void
-  set_parameters(size_t width, size_t height, double focal_length_x, double focal_length_y, double near, double far);
+  set_parameters(size_t width, size_t height, double focal_length_x, double focal_length_y, double px, double py, double near, double far);
 
   /** Similar to the gluLookAt function
    * @param x the x position of the eye pointt
@@ -131,6 +140,7 @@ public:
   void
   renderImageOnly(cv::Mat &image_out, const cv::Rect &rect) const;
 
+  const Model* getModel() const {return model_;}
 protected:
   double focal_length_x_, focal_length_y_, near_, far_;
   float angle_;

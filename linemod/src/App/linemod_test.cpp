@@ -220,9 +220,9 @@ int main(int argc, char * argv[])
   double focal_length = 525;
 
   // load color and depth
-  IplImage* lp=loadDepth("depth6.dpt");
+  IplImage* lp=loadDepth("depth199.dpt");
   cv::Mat depth = cv::cvarrToMat(lp);
-  cv::Mat color = cv::imread("color6.jpg");
+  cv::Mat color = cv::imread("color199.jpg");
   // prepare show depth
   double min, max;
   cv::minMaxIdx(depth,&min,&max);
